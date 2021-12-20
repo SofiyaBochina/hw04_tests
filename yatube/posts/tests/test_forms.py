@@ -1,20 +1,27 @@
-from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post
+from ..models import Group, Post, User
 
-User = get_user_model()
+TEST_USERNAME = 'auth'
+TEST_SLUG = 'test-slug'
+CREATED_POST_TEXT = 'Новый пост'
+EDITED_POST_TEXT = 'Изменённый пост'
+
+POST_DETAIL = 'posts:post_detail'
+PROFILE = 'posts:profile'
+POST_CREATE = 'posts:post_create'
+POST_EDIT = 'posts:post_edit'
 
 
 class PostViewsTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='auth')
+        cls.user = User.objects.create_user(username=TEST_USERNAME)
         cls.group = Group.objects.create(
             title='Тестовая группа',
-            slug='test-slug',
+            slug=TEST_SLUG,
             description='Тестовое описание',
         )
         cls.post = Post.objects.create(
@@ -31,42 +38,42 @@ class PostViewsTests(TestCase):
         """Редирект после создания нового поста и добавление в БД."""
         posts_count = Post.objects.count()
         form_data = {
-            'text': 'Новый пост',
+            'text': CREATED_POST_TEXT,
             'group': self.group.id,
         }
         response = self.authorized_client.post(
-            reverse('posts:post_create'),
+            reverse(POST_CREATE),
             data=form_data,
             follow=True
         )
         self.assertRedirects(response, reverse(
-            'posts:profile',
-            kwargs={'username': 'auth'}
+            PROFILE,
+            kwargs={'username': TEST_USERNAME}
         ))
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertTrue(
             Post.objects.filter(
-                text='Новый пост',
+                text=CREATED_POST_TEXT,
             ).exists()
         )
 
     def test_post_edit(self):
         """Изменения в БД после редактирования поста."""
         form_data = {
-            'text': 'Изменённый пост',
+            'text': EDITED_POST_TEXT,
             'group': self.group.id,
         }
         response = self.authorized_client.post(
-            reverse('posts:post_edit', kwargs={'post_id': 1}),
+            reverse(POST_EDIT, kwargs={'post_id': self.post.id}),
             data=form_data,
             follow=True
         )
         self.assertRedirects(response, reverse(
-            'posts:post_detail',
-            kwargs={'post_id': 1}
+            POST_DETAIL,
+            kwargs={'post_id': self.post.id}
         ))
         self.assertTrue(
             Post.objects.filter(
-                text='Изменённый пост',
+                text=EDITED_POST_TEXT,
             ).exists()
         )

@@ -1,21 +1,39 @@
 from django import forms
-from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post
+from yatube.settings import NUM_OF_PAGES
 
-User = get_user_model()
+from ..models import Group, Post, User
+
+TEST_SLUG = 'test-slug'
+TEST_USERNAME = 'auth'
+
+INDEX = 'posts:index'
+POST_CREATE = 'posts:post_create'
+GROUP_LIST = 'posts:group_list'
+POST_DETAIL = 'posts:post_detail'
+PROFILE = 'posts:profile'
+POST_EDIT = 'posts:post_edit'
+
+TEMPLATES = [
+    'posts/index.html',
+    'posts/group_list.html',
+    'posts/profile.html',
+    'posts/post_detail.html',
+    'posts/create_post.html',
+    'posts/create_post.html'
+]
 
 
 class PostViewsTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='auth')
+        cls.user = User.objects.create_user(username=TEST_USERNAME)
         cls.group = Group.objects.create(
             title='Тестовая группа',
-            slug='test-slug',
+            slug=TEST_SLUG,
             description='Тестовое описание',
         )
         for i in range(1, 13):
@@ -26,12 +44,12 @@ class PostViewsTests(TestCase):
                 id=i
             )
         cls.reverses = [
-            reverse('posts:index'),  # 0
-            reverse('posts:group_list', kwargs={'slug': 'test-slug'}),  # 1
-            reverse('posts:profile', kwargs={'username': 'auth'}),  # 2
-            reverse('posts:post_detail', kwargs={'post_id': 1}),  # 3
-            reverse('posts:post_edit', kwargs={'post_id': 1}),  # 4
-            reverse('posts:post_create')  # 5
+            reverse(INDEX),  # 0
+            reverse(GROUP_LIST, kwargs={'slug': TEST_SLUG}),  # 1
+            reverse(PROFILE, kwargs={'username': TEST_USERNAME}),  # 2
+            reverse(POST_DETAIL, kwargs={'post_id': cls.post.id}),  # 3
+            reverse(POST_EDIT, kwargs={'post_id': cls.post.id}),  # 4
+            reverse(POST_CREATE)  # 5
         ]
 
     def setUp(self):
@@ -41,25 +59,20 @@ class PostViewsTests(TestCase):
 
     def test_views_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
-        templates = [
-            'posts/index.html',
-            'posts/group_list.html',
-            'posts/profile.html',
-            'posts/post_detail.html',
-            'posts/create_post.html',
-            'posts/create_post.html'
-        ]
-        for i in range(len(templates)):
+        for i in range(len(TEMPLATES)):
             with self.subTest(reverse_name=self.reverses[i]):
                 response = self.authorized_client.get(self.reverses[i])
-                self.assertTemplateUsed(response, templates[i])
+                self.assertTemplateUsed(response, TEMPLATES[i])
 
     def test_paginator_and_context_on_pages_with_paginator(self):
         """Паджинатор отображает 10 постов, передается нужный контекст."""
         for i in range(0, 2):
             with self.subTest(reverse_name=self.reverses[i]):
                 response = self.client.get(self.reverses[i])
-                self.assertEqual(len(response.context['page_obj']), 10)
+                self.assertEqual(len(
+                    response.context['page_obj']),
+                    NUM_OF_PAGES
+                )
                 self.assertEqual(
                     response.context['page_obj'].object_list[0].text,
                     self.post.text
